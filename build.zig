@@ -8,23 +8,11 @@ pub fn build(b: *std.Build) void {
     const version = "0.9.6";
 
     // Build options
-    const shared = b.option(
-        bool, 
-        "shared", 
-        "Build shared library (default: true)"
-    ) orelse true;
-    
-    const build_static = b.option(
-        bool, 
-        "static", 
-        "Build static library (default: true)"
-    ) orelse true;
+    const shared = b.option(bool, "shared", "Build shared library (default: true)") orelse true;
 
-    const enable_tests = b.option(
-        bool, 
-        "tests", 
-        "Build tests (default: false)"
-    ) orelse false;
+    const build_static = b.option(bool, "static", "Build static library (default: true)") orelse true;
+
+    const enable_tests = b.option(bool, "tests", "Build tests (default: false)") orelse false;
 
     // Common source files
     const sources = [_][]const u8{
@@ -79,10 +67,14 @@ pub fn build(b: *std.Build) void {
     // Build static library if requested
     var static_lib: ?*std.Build.Step.Compile = null;
     if (build_static) {
-        const lib = b.addStaticLibrary(.{
+        const lib = b.addLibrary(.{
             .name = "cglm",
-            .target = target,
-            .optimize = optimize,
+            .linkage = .static,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
             .version = .{
                 .major = 0,
                 .minor = 9,
@@ -103,7 +95,7 @@ pub fn build(b: *std.Build) void {
         for (sources) |src| {
             lib.addCSourceFile(.{
                 .file = b.path(src),
-                .flags = &[_][]const u8{"-std=c11", "-Wall"},
+                .flags = &[_][]const u8{ "-std=c11", "-Wall" },
             });
         }
 
@@ -115,10 +107,14 @@ pub fn build(b: *std.Build) void {
     // Build shared library if requested
     var shared_lib_artifact: ?*std.Build.Step.Compile = null;
     if (shared) {
-        const lib = b.addSharedLibrary(.{
+        const lib = b.addLibrary(.{
             .name = "cglm",
-            .target = target,
-            .optimize = optimize,
+            .linkage = .dynamic,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
             .version = .{
                 .major = 0,
                 .minor = 9,
@@ -134,7 +130,7 @@ pub fn build(b: *std.Build) void {
         for (sources) |src| {
             lib.addCSourceFile(.{
                 .file = b.path(src),
-                .flags = &[_][]const u8{"-std=c11", "-Wall"},
+                .flags = &[_][]const u8{ "-std=c11", "-Wall" },
             });
         }
 
@@ -146,8 +142,11 @@ pub fn build(b: *std.Build) void {
     if (enable_tests) {
         const test_exe = b.addExecutable(.{
             .name = "tests",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
         });
 
         // Link against the static library if it exists, otherwise use the shared library
@@ -178,7 +177,7 @@ pub fn build(b: *std.Build) void {
         for (test_sources) |src| {
             test_exe.addCSourceFile(.{
                 .file = b.path(src),
-                .flags = &[_][]const u8{"-std=c11", "-Wall"},
+                .flags = &[_][]const u8{ "-std=c11", "-Wall" },
             });
         }
 
@@ -191,8 +190,7 @@ pub fn build(b: *std.Build) void {
 
     // Create pkg-config file
     const pc_file = b.addWriteFiles();
-    const pc_content = std.fmt.allocPrint(
-        b.allocator,
+    const pc_content = std.fmt.allocPrint(b.allocator,
         \\prefix={s}
         \\exec_prefix=${{prefix}}
         \\includedir=${{prefix}}/include
@@ -204,9 +202,8 @@ pub fn build(b: *std.Build) void {
         \\Cflags: -I${{includedir}}
         \\Libs: -L${{libdir}} -lcglm
         \\
-    , 
-    .{ 
-        b.install_prefix, 
+    , .{
+        b.install_prefix,
         version,
     }) catch unreachable;
 
@@ -222,6 +219,7 @@ pub fn build(b: *std.Build) void {
         .install_dir = .header,
         .install_subdir = "cglm",
     });
-    
+
     b.getInstallStep().dependOn(&headers_step.step);
 }
+
