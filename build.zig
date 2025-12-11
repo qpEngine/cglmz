@@ -68,7 +68,7 @@ pub fn build(b: *std.Build) void {
     var static_lib: ?*std.Build.Step.Compile = null;
     if (build_static) {
         const lib = b.addLibrary(.{
-            .name = "cglm",
+            .name = "cglmStatic",
             .linkage = .static,
             .root_module = b.createModule(.{
                 .target = target,
@@ -108,7 +108,7 @@ pub fn build(b: *std.Build) void {
     var shared_lib_artifact: ?*std.Build.Step.Compile = null;
     if (shared) {
         const lib = b.addLibrary(.{
-            .name = "cglm",
+            .name = "cglmDynamic",
             .linkage = .dynamic,
             .root_module = b.createModule(.{
                 .target = target,
@@ -222,4 +222,3 @@ pub fn build(b: *std.Build) void {
 
     b.getInstallStep().dependOn(&headers_step.step);
 }
-
